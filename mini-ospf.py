@@ -1,9 +1,7 @@
-import json
 import heapq
+import json
 import time
-import threading
 from collections import defaultdict, deque
-from typing import Dict, List, Tuple, Any, Set
 
 LSA_MAX_AGE = 3600  # seconds, not strictly enforced in simulation
 LSA_FLOOD_DELAY = 0.01  # small delay to simulate network transmit (seconds)
@@ -13,7 +11,7 @@ LSA_FLOOD_DELAY = 0.01  # small delay to simulate network transmit (seconds)
 class Topology:
     def __init__(self):
         # adjacency: node -> list of (neighbor, cost)
-        self.adj: Dict[str, Dict[str, float]] = defaultdict(dict)
+        self.adj: dict[str, dict[str, float]] = defaultdict(dict)
 
     def add_link(self, a: str, b: str, cost: float = 1.0):
         self.adj[a][b] = cost
@@ -30,15 +28,15 @@ class Topology:
         else:
             self.add_link(a,b,cost)
 
-    def neighbors(self, node: str) -> Dict[str, float]:
+    def neighbors(self, node: str) -> dict[str, float]:
         return dict(self.adj.get(node, {}))
 
-    def nodes(self) -> List[str]:
+    def nodes(self) -> list[str]:
         return list(self.adj.keys())
 
     @staticmethod
     def from_json(path: str):
-        with open(path, 'r') as f:
+        with open(path) as f:
             data = json.load(f)
         topo = Topology()
         for link in data.get("links", []):
@@ -59,13 +57,13 @@ class LSA:
       links: dict neighbor->cost (advertised neighbors from origin)
       timestamp: creation time
     """
-    def __init__(self, origin: str, seq: int, links: Dict[str, float], timestamp: float = None):
+    def __init__(self, origin: str, seq: int, links: dict[str, float], timestamp: float = None):
         self.origin = origin
         self.seq = seq
         self.links = dict(links)
         self.timestamp = timestamp if timestamp is not None else time.time()
 
-    def key(self) -> Tuple[str,int]:
+    def key(self) -> tuple[str,int]:
         return (self.origin, self.seq)
 
     def __repr__(self):
@@ -77,13 +75,13 @@ class Router:
     def __init__(self, name: str, sim: "OSPFSimulator"):
         self.name = name
         self.sim = sim
-        self.topology_view: Dict[str, Dict[str, float]] = {}  # built from LSDB
+        self.topology_view: dict[str, dict[str, float]] = {}  # built from LSDB
         # LSDB: origin -> latest LSA (by seq)
-        self.lsdb: Dict[str, LSA] = {}
+        self.lsdb: dict[str, LSA] = {}
         self.lsa_seq = 0
-        self.forward_table: Dict[str, Tuple[str,float]] = {}  # dest -> (next_hop, cost)
+        self.forward_table: dict[str, tuple[str,float]] = {}  # dest -> (next_hop, cost)
         # received_lsa_seqs: origin -> highest_seq_seen (for duplicate suppression)
-        self.received_lsa_seqs: Dict[str, int] = {}
+        self.received_lsa_seqs: dict[str, int] = {}
 
     def generate_lsa(self):
         """Create an LSA describing local adjacency (neighbors & costs)."""
@@ -125,7 +123,7 @@ class Router:
 
     def build_topology_view(self):
         """Build aggregated topology view (graph) from LSDB entries."""
-        graph: Dict[str, Dict[str,float]] = defaultdict(dict)
+        graph: dict[str, dict[str,float]] = defaultdict(dict)
         for origin, lsa in self.lsdb.items():
             for neigh, cost in lsa.links.items():
                 graph[origin][neigh] = cost
@@ -138,26 +136,28 @@ class Router:
     def run_dijkstra(self):
         """From this router, compute shortest path to all nodes based on topology_view."""
         src = self.name
-        dist: Dict[str, float] = {n: float('inf') for n in self.topology_view.keys()}
-        prev: Dict[str, str] = {}
+        dist: dict[str, float] = {n: float('inf') for n in self.topology_view.keys()}
+        prev: dict[str, str] = {}
         dist[src] = 0.0
         pq = [(0.0, src)]
-        visited: Set[str] = set()
+        visited: set[str] = set()
         while pq:
-            d,u = heapq.heappop(pq)
-            if u in visited: continue
+            d, u = heapq.heappop(pq)
+            if u in visited:
+                continue
             visited.add(u)
-            for v,cost in self.topology_view.get(u, {}).items():
+            for v, cost in self.topology_view.get(u, {}).items():
                 nd = d + cost
-                if nd < dist.get(v, float('inf')):
+                if nd < dist.get(v, float("inf")):
                     dist[v] = nd
                     prev[v] = u
-                    heapq.heappush(pq,(nd,v))
+                    heapq.heappush(pq, (nd, v))
         # Build forwarding table: next hop for each destination
         fwd = {}
         for dest in self.topology_view.keys():
-            if dest == src: continue
-            if dist.get(dest,float('inf')) == float('inf'):
+            if dest == src:
+                continue
+            if dist.get(dest, float("inf")) == float("inf"):
                 continue
             # reconstruct path to find next hop
             path = []
@@ -194,7 +194,7 @@ class OSPFSimulator:
     def __init__(self, topology: Topology):
         self.topology = topology
         # create routers
-        self.routers: Dict[str, Router] = {n: Router(n, self) for n in topology.nodes()}
+        self.routers: dict[str, Router] = {n: Router(n, self) for n in topology.nodes()}
         # event queue for LSA deliveries (simple synchronous queue)
         self.delivery_queue: deque = deque()
 
@@ -233,7 +233,7 @@ class OSPFSimulator:
             r.pretty_print_table()
 
     # user-level helpers
-    def send_test_packet(self, src: str, dst: str) -> Tuple[bool, List[str]]:
+    def send_test_packet(self, src: str, dst: str) -> tuple[bool, list[str]]:
         """Simulate forwarding using current forward tables. Return (delivered, path)."""
         path = []
         cur = src

@@ -1,0 +1,41 @@
+router:
+  router_id: "3.3.3.3"
+
+areas:
+  - id: "0.0.0.0"
+    type: "standard"
+
+interfaces:
+  - name: "eth1"
+    ip_address: "10.0.13.3"
+    netmask: "255.255.255.0"
+    area: "0.0.0.0"
+    hello_interval: 10
+    dead_interval: 40
+    metric: 10
+    udp_port: 8989
+
+  - name: "eth2"
+    ip_address: "10.0.34.3"
+    netmask: "255.255.255.0"
+    area: "0.0.0.0"
+    hello_interval: 10
+    dead_interval: 40
+    metric: 10
+    udp_port: 8989
+
+spf:
+  init_delay_ms: 50
+  hold_time_ms: 100
+  max_delay_ms: 5000
+
+logging:
+  level: "INFO"
+  format: "text"
+
+server:
+  api_enabled: true
+  unix_socket_path: "/tmp/mini_ospf_r3.sock"
+  http_port: 8993
+
+install_kernel_routes: false

@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: mini-ospf
+Version: 0.1.0
+Summary: A serious Python-based OSPF routing daemon and Linux network laboratory
+Author: Mini-OSPF Contributors
+License: MIT
+Keywords: ospf,routing,network,dijkstra,linux,netlink,fsm
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=6.0.1
+Provides-Extra: linux
+Requires-Dist: pyroute2>=0.7.12; sys_platform == "linux" and extra == "linux"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: mypy>=1.9.0; extra == "dev"
+Requires-Dist: ruff>=0.3.0; extra == "dev"
+Requires-Dist: types-PyYAML>=6.0.12; extra == "dev"
+
+# Mini-OSPF-Routing-Protocol
+This project focuses on how real routers discover network topology, exchange link-state information, and compute the shortest paths using Dijkstra’s algorithm. The goal is to build a simplified but functional version of the OSPF protocol used in modern computer networks.

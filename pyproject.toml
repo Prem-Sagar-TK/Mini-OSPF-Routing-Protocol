@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mini-ospf"
+version = "0.1.0"
+description = "A serious Python-based OSPF routing daemon and Linux network laboratory"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Mini-OSPF Contributors" }
+]
+keywords = ["ospf", "routing", "network", "dijkstra", "linux", "netlink", "fsm"]
+dependencies = [
+    "pyyaml>=6.0.1",
+]
+
+[project.optional-dependencies]
+linux = [
+    "pyroute2>=0.7.12; sys_platform == 'linux'",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "mypy>=1.9.0",
+    "ruff>=0.3.0",
+    "types-PyYAML>=6.0.12",
+]
+
+[project.scripts]
+mini-ospf = "mini_ospf.cli.main:main"
+mini-ospf-daemon = "mini_ospf.app.daemon:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --import-mode=importlib"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"

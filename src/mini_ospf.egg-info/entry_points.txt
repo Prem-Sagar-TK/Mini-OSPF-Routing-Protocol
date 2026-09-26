@@ -1,0 +1,3 @@
+[console_scripts]
+mini-ospf = mini_ospf.cli.main:main
+mini-ospf-daemon = mini_ospf.app.daemon:main

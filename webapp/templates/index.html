@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini-OSPF Network Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --surface2: #f8fafc;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --primary: #0052cc;
+      --primary-light: #e8f0fe;
+      --primary-dark: #003a99;
+      --accent: #0091ae;
+      --success: #00875a;
+      --success-bg: #e3fcef;
+      --warning: #b45309;
+      --warning-bg: #fffbeb;
+      --danger: #de350b;
+      --danger-bg: #ffebe6;
+      --info: #0052cc;
+      --info-bg: #deebff;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+      --radius: 8px;
+      --radius-lg: 12px;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --transition: 0.18s ease;
+    }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--primary);
+      letter-spacing: -0.3px;
+    }
+    .header-logo svg { width: 28px; height: 28px; }
+    .header-divider { width: 1px; height: 24px; background: var(--border); }
+    .header-title { color: var(--text-muted); font-size: 0.85rem; font-weight: 500; }
+    .header-spacer { flex: 1; }
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-light);
+      transition: background var(--transition);
+    }
+    .status-dot.running { background: var(--success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* ── Control Bar ─────────────────────────────────────────── */
+    .control-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary-dark);
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: #ffc4b8;
+    }
+    .btn-danger:hover { background: #ffe1da; }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .control-bar-sep { flex: 1; }
+    .refresh-label { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+    }
+    .panel-left {
+      grid-row: 1 / 3;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-top {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .panel-main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .right-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Section Labels ──────────────────────────────────────── */
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 10px;
+    }
+
+    /* ── Stats Row ───────────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-cell {
+      background: var(--surface);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); }
+    .stat-sub { font-size: 0.7rem; color: var(--text-light); font-family: var(--mono); }
+
+    /* ── Topology Canvas ─────────────────────────────────────── */
+    .topology-container {
+      flex: 1;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .topology-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .canvas-wrap {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      min-height: 280px;
+    }
+    #topology-svg {
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+    }
+
+    /* ── Router Cards ────────────────────────────────────────── */
+    .router-list { display: flex; flex-direction: column; gap: 10px; }
+    .router-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+      transition: box-shadow var(--transition), border-color var(--transition);
+      cursor: pointer;
+    }
+    .router-card:hover { box-shadow: var(--shadow); border-color: var(--border-strong); }
+    .router-card.selected { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .router-card-header {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    .router-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .router-id {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text);
+      font-family: var(--mono);
+    }
+    .router-area {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .router-health {
+      margin-left: auto;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .health-HEALTHY { background: var(--success-bg); color: var(--success); }
+    .health-DEGRADED { background: var(--warning-bg); color: var(--warning); }
+    .health-CRITICAL { background: var(--danger-bg); color: var(--danger); }
+    .router-card-body { padding: 10px 14px; }
+    .router-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .metric-item { display: flex; flex-direction: column; gap: 1px; }
+    .metric-val {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-lbl { font-size: 0.68rem; color: var(--text-muted); }
+
+    /* ── Detail Tabs ─────────────────────────────────────────── */
+    .detail-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 16px 24px 24px;
+    }
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .tab {
+      padding: 8px 18px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all var(--transition);
+      border-radius: 4px 4px 0 0;
+    }
+    .tab:hover { color: var(--text); background: var(--surface2); }
+    .tab.active { color: var(--primary); border-color: var(--primary); }
+    .tab-content { flex: 1; overflow-y: auto; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Tables ──────────────────────────────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .data-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+    .data-table .mono { font-family: var(--mono); font-size: 0.78rem; }
+
+    /* ── Badges ──────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .badge-full { background: var(--success-bg); color: var(--success); }
+    .badge-init, .badge-loading, .badge-exchange { background: var(--warning-bg); color: var(--warning); }
+    .badge-down { background: var(--danger-bg); color: var(--danger); }
+    .badge-intra { background: var(--info-bg); color: var(--info); }
+    .badge-router { background: #f1f5ff; color: #4255aa; }
+    .badge-up { background: var(--success-bg); color: var(--success); }
+    .badge-link-down { background: var(--danger-bg); color: var(--danger); }
+
+    /* ── Link Control Panel ──────────────────────────────────── */
+    .links-panel { display: flex; flex-direction: column; gap: 8px; }
+    .link-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all var(--transition);
+    }
+    .link-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+    .link-endpoints {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      flex: 1;
+    }
+    .link-meta { font-size: 0.72rem; color: var(--text-muted); }
+    .link-stats { font-size: 0.7rem; color: var(--text-light); margin-left: auto; text-align: right; }
+    .toggle-btn {
+      padding: 4px 12px;
+      border-radius: 4px;
+      border: 1px solid;
+      font-size: 0.73rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .toggle-btn.is-up {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: #ffc4b8;
+    }
+    .toggle-btn.is-down {
+      background: var(--success-bg);
+      color: var(--success);
+      border-color: #b7ebd8;
+    }
+    .toggle-btn:hover { filter: brightness(0.95); }
+
+    /* ── Event Log ───────────────────────────────────────────── */
+    .event-log {
+      height: 180px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 2px;
+    }
+    .event-entry { padding: 2px 0; line-height: 1.5; }
+    .event-entry .ts { color: var(--text-light); }
+    .event-entry .ev-packet { color: #0052cc; }
+    .event-entry .ev-link-up { color: var(--success); }
+    .event-entry .ev-link-down { color: var(--danger); }
+
+    /* ── Empty State ─────────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 48px 24px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .empty-state svg { opacity: 0.3; }
+    .empty-state h3 { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+    .empty-state p { font-size: 0.8rem; }
+
+    /* ── Topology SVG Styles ─────────────────────────────────── */
+    .topo-link { stroke: var(--border-strong); stroke-width: 2; transition: stroke 0.3s, opacity 0.3s; }
+    .topo-link.down { stroke: var(--danger); stroke-dasharray: 6,3; opacity: 0.5; }
+    .topo-link.active { stroke: var(--primary); stroke-width: 2.5; }
+    .topo-node { cursor: pointer; }
+    .topo-node circle {
+      fill: white;
+      stroke: var(--primary);
+      stroke-width: 2;
+      transition: all 0.2s;
+      filter: drop-shadow(0 2px 4px rgba(0,82,204,0.15));
+    }
+    .topo-node:hover circle { stroke-width: 3; filter: drop-shadow(0 4px 8px rgba(0,82,204,0.25)); }
+    .topo-node.selected circle { fill: var(--primary); }
+    .topo-node.selected text { fill: white; }
+    .topo-node text { font-family: var(--mono); font-size: 11px; font-weight: 700; fill: var(--primary); pointer-events: none; }
+    .topo-node .router-label { font-family: var(--font); font-size: 10px; fill: var(--text-muted); font-weight: 500; }
+    .topo-link-label { font-family: var(--mono); font-size: 9px; fill: var(--text-muted); }
+    .topo-link-cost {
+      font-size: 9px;
+      fill: var(--primary);
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+    /* ── Loader ──────────────────────────────────────────────── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Notification Toast ──────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--text);
+      color: white;
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.25s ease;
+      z-index: 9999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .main { grid-template-columns: 1fr; grid-template-rows: auto; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); max-height: 400px; overflow-y: auto; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-logo">
+    <svg viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#0052cc"/>
+      <circle cx="8" cy="14" r="3" fill="white"/>
+      <circle cx="20" cy="8" r="3" fill="white"/>
+      <circle cx="20" cy="20" r="3" fill="white"/>
+      <line x1="11" y1="14" x2="17" y2="9" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="14" x2="17" y2="19" stroke="white" stroke-width="1.5"/>
+      <line x1="20" y1="11" x2="20" y2="17" stroke="white" stroke-width="1.5"/>
+    </svg>
+    Mini-OSPF
+  </div>
+  <div class="header-divider"></div>
+  <span class="header-title">Network Operations Dashboard</span>
+  <div class="header-spacer"></div>
+  <div class="header-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Stopped</span>
+    <span>·</span>
+    <span id="uptime-display" style="font-family:var(--mono)">00:00:00</span>
+  </div>
+</header>
+
+<!-- Control Bar -->
+<div class="control-bar">
+  <button class="btn btn-primary" id="btn-start" onclick="startNetwork()">
+    <svg width="12" height="12" viewBox="0 0 12 12"><polygon points="2,1 11,6 2,11" fill="currentColor"/></svg>
+    Start Simulation
+  </button>
+  <button class="btn btn-danger" id="btn-stop" onclick="stopNetwork()" disabled>
+    <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor"/></svg>
+    Stop
+  </button>
+  <button class="btn btn-secondary" id="btn-reset" onclick="resetNetwork()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 6a4 4 0 1 1-1.2-2.8L10 2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Reset
+  </button>
+  <div class="control-bar-sep"></div>
+  <span class="refresh-label" id="last-refresh">Not started</span>
+  <div id="loading-indicator" style="display:none"><div class="spinner"></div></div>
+</div>
+
+<!-- Main Layout -->
+<div class="main">
+
+  <!-- LEFT PANEL: Router List -->
+  <aside class="panel-left">
+    <div class="panel-top">
+      <div class="section-label">Routers</div>
+      <div class="router-list" id="router-list">
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="5" y="10" width="30" height="20" rx="3" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="20" r="2" fill="currentColor"/>
+            <circle cx="20" cy="20" r="2" fill="currentColor"/>
+            <circle cx="28" cy="20" r="2" fill="currentColor"/>
+          </svg>
+          <h3>No routers running</h3>
+          <p>Click <strong>Start Simulation</strong> to begin</p>
+        </div>
+      </div>
+    </div>
+    <div class="panel-main">
+      <div class="section-label">Virtual Links</div>
+      <div class="links-panel" id="links-panel">
+        <div style="color:var(--text-light);font-size:0.78rem">Start simulation to view links.</div>
+      </div>
+      <div style="margin-top:16px">
+        <div class="section-label">Event Log</div>
+        <div class="event-log" id="event-log">
+          <div class="event-entry"><span class="ts">--:--:-- </span><span>Waiting for simulation…</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT AREA -->
+  <div class="right-area">
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-cell">
+        <div class="stat-value" id="stat-routers">0</div>
+        <div class="stat-label">Routers</div>
+        <div class="stat-sub">active nodes</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value" id="stat-neighbors">0</div>
+        <div class="stat-label">Neighbors</div>
+        <div class="stat-sub">adjacencies</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value" id="stat-routes">0</div>
+        <div class="stat-label">Routes</div>
+        <div class="stat-sub">in RIB</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-value" id="stat-lsas">0</div>
+        <div class="stat-label">LSAs</div>
+        <div class="stat-sub">in LSDB</div>
+      </div>
+    </div>
+
+    <!-- Topology -->
+    <div class="topology-container">
+      <div class="topology-header">
+        <span class="section-label" style="margin:0">Network Topology</span>
+        <span style="font-size:0.73rem;color:var(--text-muted)">Click a node to inspect · Click a link to toggle</span>
+      </div>
+      <div class="canvas-wrap">
+        <svg id="topology-svg" viewBox="0 0 700 300">
+          <g id="links-layer"></g>
+          <g id="nodes-layer"></g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="tab-bar">
+        <div class="tab active" data-tab="routes" onclick="switchTab('routes')">Routing Table</div>
+        <div class="tab" data-tab="neighbors" onclick="switchTab('neighbors')">Neighbors</div>
+        <div class="tab" data-tab="lsdb" onclick="switchTab('lsdb')">LSDB</div>
+        <div class="tab" data-tab="statistics" onclick="switchTab('statistics')">Statistics</div>
+      </div>
+      <div class="tab-content">
+        <div class="tab-pane active" id="tab-routes">
+          <div class="empty-state">
+            <p>Select a router to view its routing table.</p>
+          </div>
+        </div>
+        <div class="tab-pane" id="tab-neighbors">
+          <div class="empty-state"><p>Select a router to view neighbors.</p></div>
+        </div>
+        <div class="tab-pane" id="tab-lsdb">
+          <div class="empty-state"><p>Select a router to view LSDB.</p></div>
+        </div>
+        <div class="tab-pane" id="tab-statistics">
+          <div class="empty-state"><p>Select a router to view statistics.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let state = null;
+let selectedRouter = null;
+let activeTab = 'routes';
+let refreshInterval = null;
+let startTime = null;
+let uptimeTimer = null;
+
+// ── Topology Layout ───────────────────────────────────────────────────────────
+// Fixed positions for 4-router diamond topology (normalized 0-1)
+const NODE_POSITIONS = {
+  '1.1.1.1': { x: 0.18, y: 0.50 },
+  '2.2.2.2': { x: 0.50, y: 0.15 },
+  '3.3.3.3': { x: 0.50, y: 0.85 },
+  '4.4.4.4': { x: 0.82, y: 0.50 },
+};
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function toast(msg, duration = 2800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function fmt(n) { return n == null ? '—' : n; }
+function fmtBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(2) + ' MB';
+}
+function fmtTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString('en', { hour12: false });
+}
+function setLoading(v) {
+  document.getElementById('loading-indicator').style.display = v ? 'inline-block' : 'none';
+}
+
+// ── Network Control ───────────────────────────────────────────────────────────
+async function startNetwork() {
+  setLoading(true);
+  try {
+    const res = await fetch('/api/network/start', { method: 'POST' });
+    const data = await res.json();
+    toast('✓ Simulation started — ' + (data.routers || []).length + ' routers online');
+    startTime = Date.now();
+    startUptimeCounter();
+    enableControls(true);
+    scheduleRefresh();
+  } catch(e) { toast('✗ Failed to start: ' + e.message); }
+  setLoading(false);
+}
+
+async function stopNetwork() {
+  setLoading(true);
+  try {
+    await fetch('/api/network/stop', { method: 'POST' });
+    toast('Simulation stopped');
+    clearInterval(refreshInterval);
+    clearInterval(uptimeTimer);
+    enableControls(false);
+    state = null;
+    selectedRouter = null;
+    renderAll();
+  } catch(e) { toast('✗ ' + e.message); }
+  setLoading(false);
+}
+
+async function resetNetwork() {
+  setLoading(true);
+  try {
+    const res = await fetch('/api/network/reset', { method: 'POST' });
+    const data = await res.json();
+    toast('↺ Reset complete — ' + (data.routers || []).length + ' routers');
+    startTime = Date.now();
+    if (!uptimeTimer) startUptimeCounter();
+    enableControls(true);
+    scheduleRefresh();
+  } catch(e) { toast('✗ Reset failed: ' + e.message); }
+  setLoading(false);
+}
+
+function enableControls(running) {
+  document.getElementById('btn-start').disabled = running;
+  document.getElementById('btn-stop').disabled = !running;
+  document.getElementById('status-dot').className = 'status-dot' + (running ? ' running' : '');
+  document.getElementById('status-text').textContent = running ? 'Running' : 'Stopped';
+}
+
+// ── Uptime ────────────────────────────────────────────────────────────────────
+function startUptimeCounter() {
+  clearInterval(uptimeTimer);
+  uptimeTimer = setInterval(() => {
+    if (!startTime) return;
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    const h = String(Math.floor(s / 3600)).padStart(2,'0');
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2,'0');
+    const sec = String(s % 60).padStart(2,'0');
+    document.getElementById('uptime-display').textContent = `${h}:${m}:${sec}`;
+  }, 1000);
+}
+
+// ── Auto-Refresh ──────────────────────────────────────────────────────────────
+function scheduleRefresh() {
+  clearInterval(refreshInterval);
+  refreshInterval = setInterval(refresh, 1500);
+  refresh();
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/network/snapshot');
+    if (!res.ok) return;
+    state = await res.json();
+    renderAll();
+    document.getElementById('last-refresh').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) { /* silent */ }
+}
+
+// ── Render All ────────────────────────────────────────────────────────────────
+function renderAll() {
+  if (!state) {
+    renderEmpty();
+    return;
+  }
+  renderStats();
+  renderTopology();
+  renderRouterList();
+  renderLinks();
+  renderEventLog();
+  if (selectedRouter) renderDetail();
+}
+
+function renderEmpty() {
+  document.getElementById('router-list').innerHTML = `
+    <div class="empty-state">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+        <rect x="5" y="10" width="30" height="20" rx="3" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="12" cy="20" r="2" fill="currentColor"/>
+        <circle cx="20" cy="20" r="2" fill="currentColor"/>
+        <circle cx="28" cy="20" r="2" fill="currentColor"/>
+      </svg>
+      <h3>No routers running</h3>
+      <p>Click <strong>Start Simulation</strong> to begin</p>
+    </div>`;
+  document.getElementById('links-panel').innerHTML =
+    '<div style="color:var(--text-light);font-size:0.78rem">Start simulation to view links.</div>';
+  document.getElementById('stat-routers').textContent = '0';
+  document.getElementById('stat-neighbors').textContent = '0';
+  document.getElementById('stat-routes').textContent = '0';
+  document.getElementById('stat-lsas').textContent = '0';
+  clearTopology();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const routers = state.routers || [];
+  let totalNeighbors = 0, totalRoutes = 0, totalLSAs = 0;
+  routers.forEach(r => {
+    totalNeighbors += (r.neighbors || []).length;
+    totalRoutes += (r.routes || []).length;
+    totalLSAs += (r.lsas || []).length;
+  });
+  document.getElementById('stat-routers').textContent = routers.filter(r=>r.is_running).length;
+  document.getElementById('stat-neighbors').textContent = totalNeighbors;
+  document.getElementById('stat-routes').textContent = totalRoutes;
+  document.getElementById('stat-lsas').textContent = totalLSAs;
+}
+
+// ── Topology SVG ──────────────────────────────────────────────────────────────
+function clearTopology() {
+  document.getElementById('links-layer').innerHTML = '';
+  document.getElementById('nodes-layer').innerHTML = '';
+}
+
+function renderTopology() {
+  if (!state) return;
+  const svg = document.getElementById('topology-svg');
+  const W = svg.viewBox.baseVal.width;
+  const H = svg.viewBox.baseVal.height;
+  const routers = state.routers || [];
+  const links = (state.bus && state.bus.links) || [];
+
+  const positions = {};
+  routers.forEach(r => {
+    const pos = NODE_POSITIONS[r.router_id];
+    if (pos) {
+      positions[r.router_id] = { x: pos.x * W, y: pos.y * H };
+    } else {
+      positions[r.router_id] = { x: W / 2, y: H / 2 };
+    }
+  });
+
+  // Links
+  let linksHTML = '';
+  links.forEach(lnk => {
+    const a = positions[lnk.router_a];
+    const b = positions[lnk.router_b];
+    if (!a || !b) return;
+    const cls = lnk.is_up ? 'topo-link' : 'topo-link down';
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    linksHTML += `
+      <line class="${cls}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"
+        onclick="handleLinkClick('${lnk.router_a}','${lnk.router_b}')"
+        style="cursor:pointer"/>
+      <text class="topo-link-cost" x="${mx}" y="${my-4}" text-anchor="middle">${lnk.is_up ? fmtPkts(lnk.packets_tx) : 'DOWN'}</text>
+    `;
+  });
+  document.getElementById('links-layer').innerHTML = linksHTML;
+
+  // Nodes
+  let nodesHTML = '';
+  routers.forEach(r => {
+    const pos = positions[r.router_id];
+    if (!pos) return;
+    const sel = r.router_id === selectedRouter ? ' selected' : '';
+    const shortId = r.router_id.split('.').slice(-2).join('.');
+    const neighborCount = (r.neighbors || []).length;
+    nodesHTML += `
+      <g class="topo-node${sel}" onclick="selectRouter('${r.router_id}')">
+        <circle cx="${pos.x}" cy="${pos.y}" r="26"/>
+        <text x="${pos.x}" y="${pos.y}" text-anchor="middle" dy="0.35em">${shortId}</text>
+        <text class="router-label" x="${pos.x}" y="${pos.y + 38}" text-anchor="middle">
+          ${neighborCount} nbr${neighborCount !== 1 ? 's' : ''}
+        </text>
+      </g>
+    `;
+  });
+  document.getElementById('nodes-layer').innerHTML = nodesHTML;
+}
+
+function fmtPkts(n) {
+  if (n >= 1000) return (n/1000).toFixed(1)+'k';
+  return String(n);
+}
+
+async function handleLinkClick(routerA, routerB) {
+  try {
+    const res = await fetch('/api/link/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ router_a: routerA, router_b: routerB })
+    });
+    const data = await res.json();
+    const state = data.is_up ? 'UP' : 'DOWN';
+    toast(`Link ${routerA} ↔ ${routerB}: ${state}`);
+    await refresh();
+  } catch(e) { toast('✗ ' + e.message); }
+}
+
+// ── Router List ───────────────────────────────────────────────────────────────
+function renderRouterList() {
+  const routers = state ? state.routers || [] : [];
+  if (routers.length === 0) {
+    document.getElementById('router-list').innerHTML =
+      '<div style="color:var(--text-light);font-size:0.78rem;padding:8px">No routers found.</div>';
+    return;
+  }
+  document.getElementById('router-list').innerHTML = routers.map(r => {
+    const health = r.health || {};
+    const healthStatus = health.status || 'UNKNOWN';
+    const spfRuns = (r.metrics && r.metrics.counters && r.metrics.counters.spf_runs_total) || 0;
+    const pktsTx = (r.metrics && r.metrics.counters && r.metrics.counters.packets_tx_total) || 0;
+    const sel = r.router_id === selectedRouter ? ' selected' : '';
+    return `
+    <div class="router-card${sel}" onclick="selectRouter('${r.router_id}')" id="rc-${r.router_id.replace(/\./g,'_')}">
+      <div class="router-card-header">
+        <div class="router-icon">R</div>
+        <div>
+          <div class="router-id">${r.router_id}</div>
+          <div class="router-area">Area ${r.area_id}</div>
+        </div>
+        <div class="router-health health-${healthStatus}">${healthStatus}</div>
+      </div>
+      <div class="router-card-body">
+        <div class="router-metrics">
+          <div class="metric-item">
+            <div class="metric-val">${(r.neighbors||[]).length}</div>
+            <div class="metric-lbl">Neighbors</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-val">${(r.routes||[]).length}</div>
+            <div class="metric-lbl">Routes</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-val">${(r.lsas||[]).length}</div>
+            <div class="metric-lbl">LSAs</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectRouter(routerId) {
+  selectedRouter = routerId;
+  renderRouterList();
+  renderTopology();
+  renderDetail();
+}
+
+// ── Links Panel ───────────────────────────────────────────────────────────────
+function renderLinks() {
+  const links = state && state.bus ? state.bus.links || [] : [];
+  if (links.length === 0) {
+    document.getElementById('links-panel').innerHTML =
+      '<div style="color:var(--text-light);font-size:0.78rem">No links configured.</div>';
+    return;
+  }
+  document.getElementById('links-panel').innerHTML = links.map(lnk => {
+    const cls = lnk.is_up ? 'is-up' : 'is-down';
+    const btnText = lnk.is_up ? 'Take Down' : 'Bring Up';
+    return `
+    <div class="link-row">
+      <div>
+        <div class="link-endpoints">${lnk.router_a} ↔ ${lnk.router_b}</div>
+        <div class="link-meta">delay ${lnk.delay_ms}ms · loss ${lnk.loss_percent}%</div>
+      </div>
+      <div class="link-stats">
+        ${lnk.packets_tx} pkts<br>${fmtBytes(lnk.bytes_tx)}
+      </div>
+      <span class="badge ${lnk.is_up ? 'badge-up' : 'badge-link-down'}">${lnk.is_up ? 'UP' : 'DOWN'}</span>
+      <button class="toggle-btn ${cls}" onclick="handleLinkClick('${lnk.router_a}','${lnk.router_b}')">${btnText}</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Event Log ─────────────────────────────────────────────────────────────────
+function renderEventLog() {
+  const events = state && state.bus ? state.bus.recent_events || [] : [];
+  if (events.length === 0) return;
+  const html = [...events].reverse().slice(0, 30).map(ev => {
+    const ts = new Date(ev.ts * 1000).toLocaleTimeString('en',{hour12:false});
+    if (ev.type === 'packet') {
+      return `<div class="event-entry"><span class="ts">${ts} </span><span class="ev-packet">PKT</span> ${ev.src} → ${ev.dst} (${ev.bytes}B)</div>`;
+    } else if (ev.type === 'link_up') {
+      return `<div class="event-entry"><span class="ts">${ts} </span><span class="ev-link-up">LINK UP</span> ${ev.router_a} ↔ ${ev.router_b}</div>`;
+    } else if (ev.type === 'link_down') {
+      return `<div class="event-entry"><span class="ts">${ts} </span><span class="ev-link-down">LINK DOWN</span> ${ev.router_a} ↔ ${ev.router_b}</div>`;
+    }
+    return `<div class="event-entry"><span class="ts">${ts} </span>${ev.type}</div>`;
+  }).join('');
+  document.getElementById('event-log').innerHTML = html || '<div class="event-entry">No events yet.</div>';
+}
+
+// ── Detail Panel ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + tab);
+  });
+  if (selectedRouter) renderDetail();
+}
+
+function renderDetail() {
+  if (!selectedRouter || !state) return;
+  const r = state.routers.find(x => x.router_id === selectedRouter);
+  if (!r) return;
+
+  switch (activeTab) {
+    case 'routes': renderRoutes(r); break;
+    case 'neighbors': renderNeighbors(r); break;
+    case 'lsdb': renderLSDB(r); break;
+    case 'statistics': renderStatistics(r); break;
+  }
+}
+
+function renderRoutes(r) {
+  const routes = r.routes || [];
+  if (routes.length === 0) {
+    document.getElementById('tab-routes').innerHTML = '<div class="empty-state"><p>No routes in RIB.</p></div>';
+    return;
+  }
+  document.getElementById('tab-routes').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Prefix</th><th>Metric</th><th>Type</th><th>Next Hops</th>
+      </tr></thead>
+      <tbody>
+        ${routes.map(rt => `
+          <tr>
+            <td class="mono">${rt.destination}</td>
+            <td class="mono">${rt.metric}</td>
+            <td><span class="badge badge-intra">${rt.route_type}</span></td>
+            <td class="mono">${(rt.next_hops||[]).join(', ') || 'direct'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderNeighbors(r) {
+  const neighbors = r.neighbors || [];
+  if (neighbors.length === 0) {
+    document.getElementById('tab-neighbors').innerHTML =
+      '<div class="empty-state"><p>No neighbors formed yet.<br>Hellos are exchanging…</p></div>';
+    return;
+  }
+  document.getElementById('tab-neighbors').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Router ID</th><th>IP Address</th><th>Interface</th><th>State</th>
+      </tr></thead>
+      <tbody>
+        ${neighbors.map(n => {
+          const state = n.state || 'UNKNOWN';
+          const cls = state === 'FULL' ? 'badge-full' :
+                      state === 'DOWN' ? 'badge-down' : 'badge-init';
+          return `<tr>
+            <td class="mono">${n.router_id}</td>
+            <td class="mono">${n.ip_address}</td>
+            <td class="mono">${n.interface_name}</td>
+            <td><span class="badge ${cls}">${state}</span></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderLSDB(r) {
+  const lsas = r.lsas || [];
+  if (lsas.length === 0) {
+    document.getElementById('tab-lsdb').innerHTML =
+      '<div class="empty-state"><p>LSDB is empty.</p></div>';
+    return;
+  }
+  document.getElementById('tab-lsdb').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Type</th><th>Link State ID</th><th>Advertising Router</th><th>Age</th><th>Seq #</th>
+      </tr></thead>
+      <tbody>
+        ${lsas.map(l => `
+          <tr>
+            <td><span class="badge badge-router">${l.ls_type}</span></td>
+            <td class="mono">${l.link_state_id}</td>
+            <td class="mono">${l.advertising_router}</td>
+            <td class="mono">${l.ls_age}s</td>
+            <td class="mono">0x${(l.ls_sequence_number >>> 0).toString(16).toUpperCase().padStart(8,'0')}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderStatistics(r) {
+  const m = r.metrics || {};
+  const h = r.health || {};
+  const counters = m.counters || {};
+  const gauges = m.gauges || {};
+  const spf = m.spf_summary || {};
+  document.getElementById('tab-statistics').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:4px 0">
+      <div>
+        <div class="section-label" style="margin-bottom:10px">Health</div>
+        <table class="data-table">
+          <tbody>
+            <tr><td>Status</td><td><span class="badge health-${h.status||'UNKNOWN'}">${h.status||'—'}</span></td></tr>
+            <tr><td>Interfaces</td><td class="mono">${h.interfaces_total ?? '—'}</td></tr>
+            <tr><td>Neighbors</td><td class="mono">${h.neighbors_total ?? '—'}</td></tr>
+            <tr><td>LSAs in DB</td><td class="mono">${h.lsas_in_db ?? '—'}</td></tr>
+            <tr><td>Routes in RIB</td><td class="mono">${h.routes_in_rib ?? '—'}</td></tr>
+            <tr><td>Issues</td><td class="mono">${(h.issues||[]).join(', ') || 'None'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:10px">Counters</div>
+        <table class="data-table">
+          <tbody>
+            <tr><td>Uptime</td><td class="mono">${(m.uptime_seconds||0).toFixed(1)}s</td></tr>
+            <tr><td>SPF Runs</td><td class="mono">${counters.spf_runs_total ?? 0}</td></tr>
+            <tr><td>Packets TX</td><td class="mono">${counters.packets_tx_total ?? 0}</td></tr>
+            <tr><td>Packets RX</td><td class="mono">${counters.packets_rx_total ?? 0}</td></tr>
+            <tr><td>SPF Last (ms)</td><td class="mono">${(spf.last_duration_ms||0).toFixed(3)}</td></tr>
+            <tr><td>SPF Avg (ms)</td><td class="mono">${(spf.avg_duration_ms||0).toFixed(3)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>
