@@ -1,1 +1,1303 @@
+# ROLE
+
+Act as a **senior network-protocol engineer and Python systems architect** specializing in routing protocols, Linux networking, distributed systems, and network automation.
+
 I have an existing Python project:
+
+**Mini-OSPF-Routing-Protocol**
+
+Current purpose:
+
+> A simplified OSPF implementation that models topology discovery, link-state information exchange, and shortest-path calculation using Dijkstra's algorithm.
+
+Your task is to transform it into a **serious Python-based routing daemon and network-lab project** with architecture inspired by real enterprise routing software.
+
+## IMPORTANT — BE HONEST
+
+This is a Python project.
+
+Do NOT pretend that Python alone makes this equivalent to Cisco IOS, Juniper Junos, FRRouting, or other production router operating systems.
+
+The target is:
+
+**Production-oriented routing control-plane software + reproducible Linux routing laboratory.**
+
+The project should use real Linux networking where practical.
+
+Clearly distinguish:
+
+* Implemented
+* Tested
+* Experimental
+* Simulated
+* Not implemented
+* Production gap
+
+Never fake functionality.
+
+Never invent benchmark results.
+
+Never claim interoperability without actually testing interoperability.
+
+---
+
+# 1. FIRST — AUDIT THE EXISTING REPOSITORY
+
+Before writing significant code, inspect the entire repository.
+
+Analyze:
+
+* Python version
+* Current dependencies
+* directory structure
+* OSPF implementation
+* graph implementation
+* Dijkstra implementation
+* packet handling
+* networking code
+* configuration
+* tests
+* logging
+* error handling
+* concurrency
+* documentation
+
+Create:
+
+```text
+docs/ARCHITECTURE_AUDIT.md
+```
+
+Include:
+
+```text
+Current Architecture
+What Already Works
+What Is Incorrect
+What Is Missing
+Production Gaps
+Refactoring Plan
+```
+
+Do not rewrite functioning code without understanding it first.
+
+---
+
+# 2. PYTHON VERSION
+
+Target:
+
+**Python 3.12+**
+
+Use modern Python features where appropriate.
+
+Use:
+
+* type hints
+* dataclasses
+* enums
+* pathlib
+* asyncio where appropriate
+* context managers
+* structured exceptions
+* dependency injection where useful
+* protocols/interfaces for abstractions
+
+Use:
+
+```text
+pyproject.toml
+```
+
+as the primary project configuration.
+
+Do NOT create a huge framework unnecessarily.
+
+This is networking/system software, so keep the architecture explicit and understandable.
+
+---
+
+# 3. TARGET ARCHITECTURE
+
+Refactor into a modular routing daemon:
+
+```text
+mini_ospf/
+│
+├── pyproject.toml
+├── README.md
+├── LICENSE
+│
+├── src/
+│   └── mini_ospf/
+│
+│       ├── __init__.py
+│       │
+│       ├── app/
+│       │   ├── daemon.py
+│       │   ├── lifecycle.py
+│       │   └── dependencies.py
+│       │
+│       ├── protocol/
+│       │   ├── constants.py
+│       │   ├── packet.py
+│       │   ├── parser.py
+│       │   ├── serializer.py
+│       │   ├── checksum.py
+│       │   └── validation.py
+│       │
+│       ├── ospf/
+│       │   ├── neighbor.py
+│       │   ├── neighbor_fsm.py
+│       │   ├── hello.py
+│       │   ├── database_description.py
+│       │   ├── link_state_request.py
+│       │   ├── link_state_update.py
+│       │   ├── link_state_ack.py
+│       │   └── flooding.py
+│       │
+│       ├── lsdb/
+│       │   ├── database.py
+│       │   ├── lsa.py
+│       │   ├── aging.py
+│       │   └── synchronization.py
+│       │
+│       ├── spf/
+│       │   ├── graph.py
+│       │   ├── dijkstra.py
+│       │   ├── next_hop.py
+│       │   └── scheduler.py
+│       │
+│       ├── routing/
+│       │   ├── rib.py
+│       │   ├── route.py
+│       │   ├── next_hop.py
+│       │   └── policy.py
+│       │
+│       ├── platform/
+│       │   ├── interfaces.py
+│       │   ├── linux_netlink.py
+│       │   ├── route_installer.py
+│       │   └── socket_backend.py
+│       │
+│       ├── transport/
+│       │   ├── receiver.py
+│       │   ├── sender.py
+│       │   └── multicast.py
+│       │
+│       ├── config/
+│       │   ├── models.py
+│       │   ├── loader.py
+│       │   └── validator.py
+│       │
+│       ├── cli/
+│       │   └── main.py
+│       │
+│       ├── api/
+│       │   └── server.py
+│       │
+│       ├── observability/
+│       │   ├── logging.py
+│       │   ├── metrics.py
+│       │   └── health.py
+│       │
+│       └── security/
+│           ├── validation.py
+│           └── limits.py
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   ├── protocol/
+│   ├── network/
+│   ├── fuzz/
+│   └── performance/
+│
+├── lab/
+│   ├── create_topology.sh
+│   ├── destroy_topology.sh
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── show_routes.sh
+│   ├── fail_link.sh
+│   └── restore_link.sh
+│
+├── configs/
+│   └── examples/
+│
+└── docs/
+```
+
+Adapt the structure to the existing repository rather than blindly replacing it.
+
+---
+
+# 4. OSPF PROTOCOL ENGINE
+
+Implement a clean protocol engine.
+
+At minimum model:
+
+```text
+Router ID
+Area ID
+Interfaces
+Neighbors
+LSDB
+LSAs
+SPF
+RIB
+```
+
+Implement the OSPF packet types relevant to the supported protocol subset:
+
+```text
+Hello
+Database Description
+Link State Request
+Link State Update
+Link State Acknowledgement
+```
+
+Separate:
+
+```text
+wire format
+↓
+packet parser
+↓
+validation
+↓
+protocol state
+```
+
+Never mix packet parsing with routing decisions.
+
+---
+
+# 5. PACKET PARSING
+
+Build robust binary packet parsing.
+
+Use Python facilities such as:
+
+```python
+struct
+memoryview
+dataclasses
+```
+
+where appropriate.
+
+Every received packet must be validated before being processed.
+
+Validate:
+
+* packet length
+* packet type
+* version
+* router ID
+* area ID
+* checksum
+* authentication fields if supported
+* LSA length
+* LSA type
+* sequence number
+* age
+* malformed fields
+
+Malformed packets must not crash the daemon.
+
+Add tests for intentionally corrupted packets.
+
+---
+
+# 6. NEIGHBOR STATE MACHINE
+
+Implement an explicit state machine.
+
+States:
+
+```text
+DOWN
+ATTEMPT
+INIT
+2-WAY
+EXSTART
+EXCHANGE
+LOADING
+FULL
+```
+
+Do not implement this as scattered boolean flags.
+
+Use an explicit model:
+
+```python
+NeighborState
+NeighborEvent
+NeighborFSM
+```
+
+Each transition must be deterministic and testable.
+
+Create tests for:
+
+* normal adjacency formation
+* duplicate Hello
+* timeout
+* restart
+* invalid packet
+* sequence mismatch
+* neighbor disappearance
+
+---
+
+# 7. LINK STATE DATABASE
+
+Create a proper LSDB.
+
+Represent LSAs using typed Python structures.
+
+Example conceptual model:
+
+```text
+LSA
+├── type
+├── link_state_id
+├── advertising_router
+├── sequence_number
+├── checksum
+├── age
+└── body
+```
+
+Implement:
+
+* insertion
+* replacement
+* duplicate detection
+* aging
+* expiration
+* sequence comparison
+* lookup
+* removal
+* flooding metadata
+
+Do not use a random collection of global dictionaries.
+
+Make the LSDB a well-defined subsystem.
+
+---
+
+# 8. SPF ENGINE
+
+Preserve and improve the existing Dijkstra implementation.
+
+The SPF engine should receive:
+
+```text
+LSDB
+```
+
+and generate:
+
+```text
+Shortest Path Tree
+```
+
+Then convert it into:
+
+```text
+Route candidates
+```
+
+Implement:
+
+* Dijkstra
+* deterministic tie breaking
+* next-hop calculation
+* ECMP representation
+* SPF scheduling
+* SPF throttling/debouncing
+
+Separate:
+
+```text
+graph construction
+Dijkstra
+next-hop calculation
+route generation
+```
+
+Benchmark the implementation.
+
+Test:
+
+```text
+10 nodes
+100 nodes
+1,000 nodes
+10,000 nodes
+```
+
+Only report measurements actually obtained.
+
+---
+
+# 9. RIB
+
+Implement a Routing Information Base.
+
+Conceptually:
+
+```text
+LSDB
+ ↓
+SPF
+ ↓
+Route Candidates
+ ↓
+RIB
+```
+
+A route should contain information such as:
+
+```text
+prefix
+prefix length
+metric
+next hop
+outgoing interface
+source
+administrative information
+```
+
+Implement:
+
+* add route
+* replace route
+* remove route
+* lookup
+* longest-prefix matching
+* ECMP representation
+
+---
+
+# 10. REAL LINUX NETWORKING
+
+This is where the project becomes much more serious.
+
+Target Linux for the first real networking implementation.
+
+Use Python interfaces to Linux networking where appropriate.
+
+Investigate:
+
+* sockets
+* raw sockets
+* multicast
+* network interfaces
+* IP addresses
+* interface state
+* Linux netlink
+* kernel route tables
+
+Use appropriate libraries when justified.
+
+Potential dependencies may include:
+
+```text
+pyroute2
+```
+
+but do not add dependencies simply because they are convenient.
+
+Document every privileged operation.
+
+---
+
+# 11. ROUTE INSTALLATION
+
+Create an abstraction:
+
+```python
+class RouteInstaller:
+    ...
+```
+
+Implement:
+
+```text
+MockRouteInstaller
+LinuxRouteInstaller
+```
+
+The mock implementation is for tests.
+
+The Linux implementation must actually interact with the Linux routing subsystem.
+
+Do NOT print:
+
+```text
+"Installed route"
+```
+
+unless the route was actually installed.
+
+Verify installation by querying the kernel.
+
+---
+
+# 12. NETWORK NAMESPACE LAB
+
+Build a real multi-router Linux lab.
+
+Example:
+
+```text
+          R1
+         /  \
+        /    \
+       R2----R3
+        \    /
+         \  /
+          R4
+```
+
+Each router should run a separate instance of the Python daemon.
+
+Use:
+
+```text
+network namespaces
+veth pairs
+Linux routing
+```
+
+Create:
+
+```text
+lab/create_topology.sh
+lab/start.sh
+lab/stop.sh
+lab/destroy_topology.sh
+```
+
+The lab should demonstrate:
+
+1. Interface discovery
+2. Hello exchange
+3. Neighbor formation
+4. LSDB synchronization
+5. SPF calculation
+6. RIB creation
+7. Kernel route installation
+8. Link failure
+9. LSA propagation
+10. SPF recalculation
+11. Route replacement
+12. Link recovery
+
+---
+
+# 13. CONFIGURATION
+
+Use YAML or TOML.
+
+Example:
+
+```yaml
+router:
+  router_id: "1.1.1.1"
+
+areas:
+  - id: "0.0.0.0"
+
+interfaces:
+  - name: "eth0"
+    area: "0.0.0.0"
+    hello_interval: 10
+    dead_interval: 40
+```
+
+Use typed configuration models.
+
+Validate before startup:
+
+```bash
+mini-ospf --check-config config.yaml
+```
+
+Provide useful errors.
+
+---
+
+# 14. CLI
+
+Create an operator CLI.
+
+Examples:
+
+```bash
+mini-ospf show interfaces
+
+mini-ospf show neighbors
+
+mini-ospf show lsdb
+
+mini-ospf show routes
+
+mini-ospf show route 10.0.0.0/24
+
+mini-ospf show spf
+
+mini-ospf show statistics
+```
+
+Support:
+
+```bash
+--json
+```
+
+for automation.
+
+Do not expose dangerous operations by default.
+
+---
+
+# 15. OBSERVABILITY
+
+Implement structured logging.
+
+Use Python's logging infrastructure or an appropriate structured logging library.
+
+Events should include:
+
+```text
+timestamp
+severity
+router_id
+interface
+neighbor
+event
+message
+```
+
+Track metrics:
+
+```text
+neighbor_count
+lsa_count
+route_count
+spf_runs
+spf_duration
+packets_received
+packets_sent
+packet_errors
+neighbor_state_changes
+route_install_failures
+```
+
+Expose metrics through a local monitoring endpoint if practical.
+
+---
+
+# 16. CONCURRENCY
+
+Do not blindly use threads everywhere.
+
+Evaluate:
+
+```text
+asyncio
+threads
+processes
+```
+
+For:
+
+```text
+packet reception
+timers
+neighbor events
+LSA aging
+SPF scheduling
+CLI/API
+metrics
+```
+
+Prefer a clear event-driven architecture where appropriate.
+
+Document why each concurrency mechanism exists.
+
+Avoid shared mutable global state.
+
+---
+
+# 17. FAILURE HANDLING
+
+The daemon must survive:
+
+* malformed packets
+* packet loss
+* duplicate packets
+* interface disappearance
+* neighbor timeout
+* daemon restart
+* route installation failure
+* kernel API failure
+* invalid configuration
+* resource exhaustion
+
+Test these scenarios.
+
+The routing daemon should fail predictably.
+
+---
+
+# 18. SECURITY
+
+Treat every network packet as untrusted input.
+
+Create:
+
+```text
+docs/THREAT_MODEL.md
+```
+
+Analyze:
+
+```text
+Network
+ ↓
+Packet parser
+ ↓
+Validation
+ ↓
+Neighbor FSM
+ ↓
+LSDB
+ ↓
+SPF
+ ↓
+RIB
+ ↓
+Kernel FIB
+```
+
+Consider:
+
+* malformed packet attacks
+* memory exhaustion
+* CPU exhaustion
+* excessive LSA generation
+* replay
+* spoofed routing information
+* authentication
+* privilege escalation
+* malicious configuration
+* API abuse
+
+Implement reasonable resource limits.
+
+Do not claim security certification.
+
+---
+
+# 19. TESTING
+
+Use:
+
+```text
+pytest
+```
+
+Build:
+
+## Unit tests
+
+Test:
+
+* Dijkstra
+* graph
+* LSDB
+* LSA comparison
+* packet parser
+* serializer
+* checksum
+* neighbor FSM
+* configuration
+* route selection
+
+## Integration tests
+
+Test actual router instances.
+
+## Network tests
+
+Use Linux namespaces.
+
+## Failure tests
+
+Test:
+
+```text
+link down
+link up
+router restart
+neighbor restart
+packet loss
+invalid packet
+```
+
+## Fuzz testing
+
+Fuzz:
+
+```text
+packet parser
+LSA parser
+configuration parser
+```
+
+Use an appropriate Python fuzzing framework/tool.
+
+---
+
+# 20. TYPE CHECKING AND CODE QUALITY
+
+Use:
+
+```text
+ruff
+mypy
+pytest
+```
+
+or equivalent tooling.
+
+Configure:
+
+* formatting
+* linting
+* type checking
+* test coverage
+
+Use strict typing where practical.
+
+Avoid:
+
+```python
+Any
+```
+
+everywhere simply to silence mypy.
+
+Do not suppress warnings without documenting why.
+
+---
+
+# 21. CI/CD
+
+Create GitHub Actions.
+
+Pipeline:
+
+```text
+Install Python
+ ↓
+Install dependencies
+ ↓
+Lint
+ ↓
+Type check
+ ↓
+Unit tests
+ ↓
+Integration tests
+ ↓
+Coverage
+ ↓
+Build package
+```
+
+Add Linux networking tests separately where privileged namespace operations are required.
+
+---
+
+# 22. PERFORMANCE
+
+Measure actual performance.
+
+Benchmark:
+
+### SPF
+
+```text
+nodes
+edges
+LSAs
+execution time
+memory
+```
+
+### Packet parser
+
+```text
+packets/sec
+latency
+```
+
+### LSDB
+
+```text
+insert/sec
+lookup latency
+memory
+```
+
+### Route installation
+
+```text
+routes/sec
+latency
+failure rate
+```
+
+Do not optimize based on assumptions.
+
+Measure first.
+
+---
+
+# 23. API
+
+Create a local management API.
+
+Prefer a Unix socket for privileged local control where appropriate.
+
+Expose read-only endpoints first:
+
+```text
+/interfaces
+/neighbors
+/lsdb
+/routes
+/spf
+/metrics
+/health
+```
+
+Do not expose unrestricted route modification through an unauthenticated HTTP endpoint.
+
+---
+
+# 24. CONTAINER / LAB SUPPORT
+
+Provide Docker support for development where useful.
+
+However:
+
+**Do not claim Docker containers are equivalent to physical routers.**
+
+Document required Linux capabilities and networking configuration.
+
+For realistic routing experiments, prefer Linux network namespaces.
+
+---
+
+# 25. DOCUMENTATION
+
+Create:
+
+```text
+README.md
+docs/ARCHITECTURE.md
+docs/PROTOCOL.md
+docs/CONFIGURATION.md
+docs/OPERATIONS.md
+docs/TESTING.md
+docs/SECURITY.md
+docs/PERFORMANCE.md
+docs/THREAT_MODEL.md
+docs/LIMITATIONS.md
+docs/ROADMAP.md
+```
+
+README must contain:
+
+* project purpose
+* architecture
+* supported functionality
+* unsupported functionality
+* installation
+* configuration
+* running one router
+* running multi-router lab
+* CLI commands
+* failure demonstration
+* test results
+* benchmark results
+* limitations
+* production-readiness assessment
+
+---
+
+# 26. PRODUCTION-READINESS MATRIX
+
+Create a table:
+
+| Capability                | Status | Evidence |
+| ------------------------- | ------ | -------- |
+| Dijkstra SPF              |        |          |
+| LSDB                      |        |          |
+| Neighbor FSM              |        |          |
+| Packet parsing            |        |          |
+| Real packet I/O           |        |          |
+| Linux interface discovery |        |          |
+| Linux FIB integration     |        |          |
+| Configuration             |        |          |
+| CLI                       |        |          |
+| Metrics                   |        |          |
+| Fuzz testing              |        |          |
+| Network namespace testing |        |          |
+| Security hardening        |        |          |
+| Authentication            |        |          |
+| HA                        |        |          |
+| Large-scale testing       |        |          |
+| Interoperability          |        |          |
+
+Use only evidence from actual implementation and testing.
+
+---
+
+# 27. WHAT NOT TO IMPLEMENT YET
+
+Do not waste time pretending to implement every enterprise routing feature.
+
+Initially focus on a strong core:
+
+```text
+OSPF protocol subset
++
+neighbor FSM
++
+LSDB
++
+SPF
++
+RIB
++
+Linux networking
++
+kernel FIB
++
+network namespace lab
++
+CLI
++
+tests
++
+observability
+```
+
+Only after these are stable consider:
+
+```text
+multi-area OSPF
+authentication
+ECMP improvements
+graceful restart
+HA
+advanced APIs
+large-scale optimization
+interoperability testing
+```
+
+---
+
+# 28. DEVELOPMENT PROCESS
+
+Work incrementally.
+
+Follow this order:
+
+```text
+1. Repository audit
+2. Architecture
+3. Refactor
+4. Tests
+5. Packet layer
+6. LSDB
+7. Neighbor FSM
+8. OSPF engine
+9. SPF
+10. RIB
+11. Linux interface layer
+12. Kernel FIB
+13. Network namespace lab
+14. CLI
+15. Observability
+16. Security
+17. Fuzzing
+18. Stress testing
+19. CI
+20. Documentation
+21. Performance optimization
+```
+
+After each phase:
+
+```text
+run tests
+↓
+fix failures
+↓
+run lint
+↓
+run type checker
+↓
+update documentation
+```
+
+Do not make huge untested changes.
+
+---
+
+# 29. GIT COMMITS
+
+Use logical commits:
+
+```text
+feat: establish routing daemon architecture
+feat: implement OSPF packet model
+feat: implement packet parser
+feat: implement LSDB
+feat: implement neighbor state machine
+feat: implement SPF engine
+feat: implement RIB
+feat: add Linux interface discovery
+feat: add Linux route installation
+feat: add network namespace lab
+feat: add router CLI
+feat: add metrics
+test: add protocol integration tests
+test: add network failure tests
+test: add fuzz tests
+perf: optimize SPF
+security: harden packet validation
+docs: document routing architecture
+ci: add Python CI pipeline
+```
+
+---
+
+# 30. FINAL DELIVERABLE
+
+At the end, provide:
+
+## A. Architecture
+
+Explain the complete packet-to-route flow:
+
+```text
+Network Packet
+ ↓
+Socket
+ ↓
+Parser
+ ↓
+Validation
+ ↓
+Neighbor FSM
+ ↓
+LSDB
+ ↓
+SPF
+ ↓
+RIB
+ ↓
+FIB
+ ↓
+Linux Kernel
+```
+
+## B. Actual capabilities
+
+List exactly what works.
+
+## C. Test evidence
+
+Show tests actually executed.
+
+## D. Benchmark evidence
+
+Show measurements actually obtained.
+
+## E. Production gaps
+
+Be brutally honest.
+
+## F. Remaining engineering work
+
+Explain what would still be required before attempting deployment in a real enterprise network.
+
+## G. Resume description
+
+Generate 2–3 technically accurate resume bullets.
+
+Do NOT write:
+
+> "Built a production-grade enterprise router."
+
+unless there is genuine evidence to support that claim.
+
+A more appropriate description may eventually be:
+
+> "Engineered a Python-based OSPF routing daemon implementing link-state topology management, neighbor state handling, SPF computation, RIB generation, and Linux network integration, validated through multi-router network-namespace testing."
+
+Only use that wording if the implementation actually supports those claims.
+
+---
+
+# FINAL ENGINEERING PRINCIPLE
+
+Build this as if a senior network engineer will review the repository and ask:
+
+**"Show me the packet."**
+
+Then:
+
+**"Show me the neighbor state transition."**
+
+Then:
+
+**"Show me the LSA in the LSDB."**
+
+Then:
+
+**"Show me the SPF calculation."**
+
+Then:
+
+**"Show me the RIB."**
+
+Then:
+
+**"Show me the route in the Linux kernel."**
+
+Then:
+
+**"Now break the link. Show me what happens."**
+
+Every stage should have observable evidence.
+
+The objective is to demonstrate genuine understanding of:
+
+**OSPF + computer networks + distributed systems + Dijkstra + Python systems programming + Linux networking + routing architecture + testing + observability + security.**
+
+Do not optimize the project for impressive wording.
+
+Optimize it for **technical credibility and verifiable behavior**.
